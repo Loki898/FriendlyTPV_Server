@@ -19,6 +19,7 @@ import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import java.util.*
 
 fun Application.configureRouting() {
     val mongoConnection: MongoConnection = MongoConnection()
@@ -60,13 +61,23 @@ fun Application.configureRouting() {
     }
 
     routing {
+        authenticate("jwt-auth") {
+            get("/logged"){
+                println("Logged User")
+                call.respond(HttpStatusCode.OK)
+            }
+        }
         get("/") {
             val users = userRepository.getAll()
-            val usersResponses = mutableListOf<UserResponse>()
+            //val usersResponses = mutableListOf<UserResponse>()
+            val usersResponses = mutableListOf<User>()
             users.forEach {
-                val userResponse = UserResponse(
+                val userResponse = User(
                     id = it._id.toString(),
                     username = it.username,
+                    password = it.password,
+                    role = it.role,
+                    name = it.name,
                 )
                 usersResponses.add(userResponse)
             }
@@ -74,6 +85,29 @@ fun Application.configureRouting() {
                 HttpStatusCode.OK,
                 usersResponses
             )
+        }
+
+        post("/auth/login") {
+            val user = call.receive<User>()
+            val userList = userRepository.getAll()
+            val exist = userList.find { u -> u.username == user.username }
+            if (exist == null) {
+                call.respond(HttpStatusCode.Unauthorized, "User not found")
+            } else {
+                val result = BCrypt.verifyer().verify(user.password.toCharArray(), exist.password);
+
+                if (result.verified) {
+                    val token = JWT.create()
+                        .withAudience(audience)
+                        .withIssuer(issuer)
+                        .withClaim("username", user.username)
+                        .withExpiresAt(Date(System.currentTimeMillis() + 3600000))
+                        .sign(Algorithm.HMAC256(secret))
+                    call.respond(HttpStatusCode.OK,hashMapOf("token" to token))
+                } else {
+                    call.respond(HttpStatusCode.Unauthorized, "Password invalid")
+                }
+            }
         }
         post("/users") {
             try {
