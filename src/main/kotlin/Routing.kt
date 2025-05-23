@@ -5,20 +5,18 @@ import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.crr.database.MongoConnection
 import com.crr.users.User
-import com.crr.users.UserResponse
 import com.crr.users.userToUserBson
 import com.example.repositorys.users.UserRepository
 import io.ktor.http.*
 import io.ktor.serialization.*
-import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
 import io.ktor.server.http.content.*
-import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import org.bson.types.ObjectId
 import java.util.*
 
 fun Application.configureRouting() {
@@ -34,11 +32,7 @@ fun Application.configureRouting() {
             realm = myRealm
             // Verifica que el token sea un token válido así como la signatura
             verifier(
-                JWT
-                    .require(Algorithm.HMAC256(secret))
-                    .withAudience(audience)
-                    .withIssuer(issuer)
-                    .build()
+                JWT.require(Algorithm.HMAC256(secret)).withAudience(audience).withIssuer(issuer).build()
             )
 
             // Valida el payload
@@ -53,8 +47,7 @@ fun Application.configureRouting() {
             // Configura una respuesta cuando la autenticación falle
             challenge { defaultScheme, realm ->
                 call.respond(
-                    HttpStatusCode.Unauthorized,
-                    "Token is not valid or has expired"
+                    HttpStatusCode.Unauthorized, "Token is not valid or has expired"
                 )
             }
         }
@@ -62,7 +55,7 @@ fun Application.configureRouting() {
 
     routing {
         authenticate("jwt-auth") {
-            get("/logged"){
+            get("/logged") {
                 println("Logged User")
                 call.respond(HttpStatusCode.OK)
             }
@@ -82,8 +75,7 @@ fun Application.configureRouting() {
                 usersResponses.add(userResponse)
             }
             call.respond(
-                HttpStatusCode.OK,
-                usersResponses
+                HttpStatusCode.OK, usersResponses
             )
         }
 
@@ -94,26 +86,49 @@ fun Application.configureRouting() {
             if (exist == null) {
                 call.respond(HttpStatusCode.Unauthorized, "User not found")
             } else {
-                val result = BCrypt.verifyer().verify(user.password.toCharArray(), exist.password);
+                val result = BCrypt.verifyer().verify(user.password.toCharArray(), exist.password)
 
                 if (result.verified) {
-                    val token = JWT.create()
-                        .withAudience(audience)
-                        .withIssuer(issuer)
-                        .withClaim("username", user.username)
-                        .withExpiresAt(Date(System.currentTimeMillis() + 3600000))
-                        .sign(Algorithm.HMAC256(secret))
-                    call.respond(HttpStatusCode.OK,hashMapOf("token" to token))
+                    val token =
+                        JWT.create().withAudience(audience).withIssuer(issuer).withClaim("username", user.username)
+                            .withExpiresAt(Date(System.currentTimeMillis() + 3600000)).sign(Algorithm.HMAC256(secret))
+                    call.respond(HttpStatusCode.OK, hashMapOf("token" to token))
                 } else {
                     call.respond(HttpStatusCode.Unauthorized, "Password invalid")
                 }
             }
         }
+        authenticate("jwt-auth") {
+            post("/user/delete/{id}") {
+                val id = call.parameters["id"] ?: ""
+                try {
+                    if (id.isNotEmpty()) {
+                        val objectId = ObjectId(id)
+                        val userlist = userRepository.getAll()
+                        var exist = userlist.find { u -> u._id == objectId }
+                        if (exist != null) {
+                            userRepository.removeById(objectId)
+                            call.respond(HttpStatusCode.OK)
+                        } else {
+                            call.respond(HttpStatusCode.NotFound, "User not found")
+                        }
+                    } else {
+                        call.respond(HttpStatusCode.Unauthorized, "There is no id on the message")
+                    }
+                } catch (e: NumberFormatException) {
+                    call.respond(HttpStatusCode.BadRequest)
+                } catch (e: Exception) {
+                    call.respond(HttpStatusCode.InternalServerError)
+                }
+            }
+        }
+
+
         post("/users") {
             try {
                 var userExist = false
                 val userSer = call.receive<User>()
-                val bcryptHashPassword = BCrypt.withDefaults().hashToString(12, userSer.password.toCharArray());
+                val bcryptHashPassword = BCrypt.withDefaults().hashToString(12, userSer.password.toCharArray())
                 val usersMongo = userRepository.getAll()
                 if (usersMongo != null) {
                     usersMongo.forEach {
@@ -122,12 +137,11 @@ fun Application.configureRouting() {
                         }
                     }
                 }
-                if (!userExist){
+                if (!userExist) {
                     userSer.password = bcryptHashPassword
                     userRepository.add(userToUserBson(userSer))
                     call.respond(
-                        HttpStatusCode.Created,
-                        "Usuario creado"
+                        HttpStatusCode.Created, "Usuario creado"
                     )
                 } else {
                     call.respond(HttpStatusCode.Conflict, "Usuario ya existente")
@@ -135,18 +149,15 @@ fun Application.configureRouting() {
 
             } catch (e: IllegalStateException) {
                 call.respond(
-                    status = HttpStatusCode.BadRequest,
-                    message = mapOf("message" to e.message)
+                    status = HttpStatusCode.BadRequest, message = mapOf("message" to e.message)
                 )
             } catch (e: JsonConvertException) {
                 call.respond(
-                    status = HttpStatusCode.BadRequest,
-                    message = mapOf("message" to e.message)
+                    status = HttpStatusCode.BadRequest, message = mapOf("message" to e.message)
                 )
             } catch (e: Exception) {
                 call.respond(
-                    status = HttpStatusCode.BadRequest,
-                    message = mapOf("message" to e.message)
+                    status = HttpStatusCode.BadRequest, message = mapOf("message" to e.message)
                 )
             }
         }
