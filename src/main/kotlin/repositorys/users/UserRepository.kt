@@ -6,7 +6,6 @@ import com.mongodb.client.model.Filters
 import com.mongodb.client.model.Updates
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.toList
-import org.bson.BsonValue
 import org.bson.types.ObjectId
 
 class UserRepository(private val mongoConnection: MongoConnection): AUserRepository() {
