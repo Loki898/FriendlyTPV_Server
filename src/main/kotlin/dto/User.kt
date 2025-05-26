@@ -1,9 +1,8 @@
-package com.crr.users
+package com.example.dto
 
 import kotlinx.serialization.Serializable
 import org.bson.codecs.pojo.annotations.BsonId
 import org.bson.types.ObjectId
-import javax.management.relation.Role
 
 @Serializable
 enum class Rol(){

@@ -1,4 +1,4 @@
-package com.crr.users
+package com.example.dto
 
 import com.example.EntidadesMySQL.FormaPagoMySQL
 import kotlinx.serialization.Serializable

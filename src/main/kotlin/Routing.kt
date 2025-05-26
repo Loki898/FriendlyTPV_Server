@@ -4,27 +4,29 @@ import at.favre.lib.crypto.bcrypt.BCrypt
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.crr.database.MongoConnection
-import com.crr.users.Forma_pago
-import com.crr.users.User
-import com.crr.users.createFormaPago
-import com.crr.users.userToUserBson
 import com.example.database.DatabaseFactory
+import com.example.dto.*
+import com.example.dto.UserBson
 import com.example.repositorys.Category.CategoryRepository
 import com.example.repositorys.Category.InvoiceRepository
 import com.example.repositorys.FormaPago.FormaPagoRepository
+import com.example.repositorys.LineasVenta.LineasVentaRepository
 import com.example.repositorys.users.UserRepository
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.client.j2se.MatrixToImageWriter
 import com.google.zxing.qrcode.QRCodeWriter
+import com.mongodb.DuplicateKeyException
 import io.ktor.http.*
 import io.ktor.serialization.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
 import io.ktor.server.http.content.*
+import io.ktor.server.plugins.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import kotlinx.serialization.SerializationException
 import org.apache.pdfbox.pdmodel.PDDocument
 import org.apache.pdfbox.pdmodel.PDPage
 import org.apache.pdfbox.pdmodel.PDPageContentStream
@@ -46,6 +48,7 @@ fun Application.configureRouting() {
     val formapagorepository = FormaPagoRepository()
     val categoryRepository = CategoryRepository()
     val invoiceRepository = InvoiceRepository()
+    val lineasVentaRepository = LineasVentaRepository()
     DatabaseFactory.init()
 
     install(Authentication) {
@@ -120,17 +123,57 @@ fun Application.configureRouting() {
             }
         }
 
+        post("/categories") {
+            try {
+                val category = call.receive<Category>()
+                val categories = categoryRepository.getAll()
+
+                // Validación básica
+                if (category.nombre.isBlank()) {
+                    call.respond(HttpStatusCode.BadRequest, "El nombre de la categoría no puede estar vacío")
+                    return@post
+                }
+                val exist = categoryRepository.getCategorieByName(category.nombre)
+                if (exist == null) {
+                    call.respond(HttpStatusCode.Conflict, "Esa categoría ya existe")
+                    return@post
+                }
+
+
+                // Insertar y responder
+                val inserted = categoryRepository.insertCategory(category)
+                call.respond(HttpStatusCode.Created, inserted)
+
+            } catch (e: BadRequestException) {
+                // Error al deserializar JSON
+                call.respond(HttpStatusCode.BadRequest, "Formato JSON inválido: ${e.message}")
+
+            } catch (e: DuplicateKeyException) {
+                // Ejemplo si la categoría ya existe
+                call.respond(HttpStatusCode.Conflict, "Ya existe una categoría con ese nombre")
+
+            } catch (e: Exception) {
+                // Otros errores no esperados
+                println(e)
+                call.respond(HttpStatusCode.InternalServerError, "Error interno del servidor: ${e.message}")
+            }
+        }
+
         get("/formspago") {
             val formasPago = formapagorepository.getAll()
             call.respond(formasPago)
         }
-        get("/categorys") {
+        get("/categories") {
             val categories = categoryRepository.getAll()
             call.respond(categories)
         }
         get("/invoices") {
             val invoices = invoiceRepository.getAll()
             call.respond(invoices)
+        }
+        get("/lineasventa") {
+            val lineasVenta = lineasVentaRepository.getAll()
+            call.respond(lineasVenta)
         }
 
         post("/formspago") {
@@ -153,7 +196,10 @@ fun Application.configureRouting() {
                 )
             }
         }
+        post("/user/update/{id}") {
+            val id = call.parameters["id"] ?: ""
 
+        }
         authenticate("jwt-auth") {
             post("/user/delete/{id}") {
                 val id = call.parameters["id"] ?: ""

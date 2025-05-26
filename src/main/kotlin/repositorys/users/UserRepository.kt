@@ -1,7 +1,7 @@
 package com.example.repositorys.users
 
 import com.crr.database.MongoConnection
-import com.crr.users.UserBson
+import com.example.dto.UserBson
 import com.mongodb.client.model.Filters
 import com.mongodb.client.model.Updates
 import kotlinx.coroutines.flow.firstOrNull

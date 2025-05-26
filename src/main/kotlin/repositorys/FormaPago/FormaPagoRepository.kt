@@ -1,8 +1,7 @@
 package com.example.repositorys.FormaPago
 
-import com.crr.users.Forma_pago
 import com.example.EntidadesMySQL.FormaPagoMySQL
-import org.bson.types.ObjectId
+import com.example.dto.Forma_pago
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 

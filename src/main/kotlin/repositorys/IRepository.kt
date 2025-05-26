@@ -1,7 +1,5 @@
 package com.example.repositorys
 
-import org.bson.BsonValue
-
 interface IRepository<T,K> {
     suspend fun getAll(): List<T>
     suspend fun remove(item: T)

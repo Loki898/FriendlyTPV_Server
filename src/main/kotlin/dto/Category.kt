@@ -1,15 +1,11 @@
-package com.crr.users
+package com.example.dto
 
-import com.example.EntidadesMySQL.FormaPagoMySQL
 import kotlinx.serialization.Serializable
-import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.selectAll
-import org.jetbrains.exposed.sql.transactions.transaction
 
 @Serializable
 data class Category (
-    var id_category:Int? = null,
-    var nombre:String? = null,
+    var id_category:Int = 0,
+    var nombre:String,
 ){
     constructor(): this(0,"")
 }
