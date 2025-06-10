@@ -6,9 +6,9 @@ import com.auth0.jwt.algorithms.Algorithm
 import com.crr.database.MongoConnection
 import com.example.database.DatabaseFactory
 import com.example.dto.*
-import com.example.dto.UserBson
 import com.example.repositorys.Category.CategoryRepository
 import com.example.repositorys.Category.InvoiceRepository
+import com.example.repositorys.Category.ProductRepository
 import com.example.repositorys.FormaPago.FormaPagoRepository
 import com.example.repositorys.LineasVenta.LineasVentaRepository
 import com.example.repositorys.users.UserRepository
@@ -26,7 +26,6 @@ import io.ktor.server.plugins.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import kotlinx.serialization.SerializationException
 import org.apache.pdfbox.pdmodel.PDDocument
 import org.apache.pdfbox.pdmodel.PDPage
 import org.apache.pdfbox.pdmodel.PDPageContentStream
@@ -49,6 +48,7 @@ fun Application.configureRouting() {
     val categoryRepository = CategoryRepository()
     val invoiceRepository = InvoiceRepository()
     val lineasVentaRepository = LineasVentaRepository()
+    val productRepository = ProductRepository()
     DatabaseFactory.init()
 
     install(Authentication) {
@@ -82,6 +82,57 @@ fun Application.configureRouting() {
             get("/logged") {
                 println("Logged User")
                 call.respond(HttpStatusCode.OK)
+            }
+        }
+        get("/products/category/{id_categoria}"){
+            val id = call.parameters["id_categoria"] ?: ""
+            if (id.isNotEmpty()) {
+                val objectId = Integer.valueOf(id)
+                val products = productRepository.getProductsByCategory(objectId)
+                //var exist = userlist.find { u -> u._id == objectId }
+                if (products.isNotEmpty()){
+                    call.respond(HttpStatusCode.OK,products)
+                }else{
+                    call.respond(HttpStatusCode.NotFound)
+                }
+            } else {
+                call.respond(HttpStatusCode.Unauthorized, "There is no id on the message")
+            }
+
+        }
+        post("/product") {
+            try {
+                val producto = call.receive<Producto>()
+                val productos = productRepository.getAll()
+
+                // Validación básica
+                if (producto.nombre?.isBlank() == true) {
+                    call.respond(HttpStatusCode.BadRequest, "El nombre de la categoría no puede estar vacío")
+                    return@post
+                }
+                val exist = producto.nombre?.let { productRepository.getProductByName(it) }
+                if (exist != null) {
+                    call.respond(HttpStatusCode.Conflict, "Ese producto ya existe")
+                    return@post
+                }
+
+
+                // Insertar y responder
+                val inserted = productRepository.insertProduct(producto)
+                call.respond(HttpStatusCode.Created, inserted)
+
+            } catch (e: BadRequestException) {
+                // Error al deserializar JSON
+                call.respond(HttpStatusCode.BadRequest, "Formato JSON inválido: ${e.message}")
+
+            } catch (e: DuplicateKeyException) {
+                // Ejemplo si la categoría ya existe
+                call.respond(HttpStatusCode.Conflict, "Ya existe un producto con ese nombre")
+
+            } catch (e: Exception) {
+                // Otros errores no esperados
+                println(e)
+                call.respond(HttpStatusCode.InternalServerError, "Error interno del servidor: ${e.message}")
             }
         }
         get("/") {
@@ -123,41 +174,44 @@ fun Application.configureRouting() {
             }
         }
 
-        post("/categories") {
-            try {
-                val category = call.receive<Category>()
-                val categories = categoryRepository.getAll()
+        authenticate("jwt-auth") {
+            post("/categories") {
+                try {
+                    val category = call.receive<Category>()
+                    val categories = categoryRepository.getAll()
 
-                // Validación básica
-                if (category.nombre.isBlank()) {
-                    call.respond(HttpStatusCode.BadRequest, "El nombre de la categoría no puede estar vacío")
-                    return@post
+                    // Validación básica
+                    if (category.nombre.isBlank()) {
+                        call.respond(HttpStatusCode.BadRequest, "El nombre de la categoría no puede estar vacío")
+                        return@post
+                    }
+                    val exist = categoryRepository.getCategorieByName(category.nombre)
+                    if (exist != null) {
+                        call.respond(HttpStatusCode.Conflict, "Esa categoría ya existe")
+                        return@post
+                    }
+
+
+                    // Insertar y responder
+                    val inserted = categoryRepository.insertCategory(category)
+                    call.respond(HttpStatusCode.Created, inserted)
+
+                } catch (e: BadRequestException) {
+                    // Error al deserializar JSON
+                    call.respond(HttpStatusCode.BadRequest, "Formato JSON inválido: ${e.message}")
+
+                } catch (e: DuplicateKeyException) {
+                    // Ejemplo si la categoría ya existe
+                    call.respond(HttpStatusCode.Conflict, "Ya existe una categoría con ese nombre")
+
+                } catch (e: Exception) {
+                    // Otros errores no esperados
+                    println(e)
+                    call.respond(HttpStatusCode.InternalServerError, "Error interno del servidor: ${e.message}")
                 }
-                val exist = categoryRepository.getCategorieByName(category.nombre)
-                if (exist == null) {
-                    call.respond(HttpStatusCode.Conflict, "Esa categoría ya existe")
-                    return@post
-                }
-
-
-                // Insertar y responder
-                val inserted = categoryRepository.insertCategory(category)
-                call.respond(HttpStatusCode.Created, inserted)
-
-            } catch (e: BadRequestException) {
-                // Error al deserializar JSON
-                call.respond(HttpStatusCode.BadRequest, "Formato JSON inválido: ${e.message}")
-
-            } catch (e: DuplicateKeyException) {
-                // Ejemplo si la categoría ya existe
-                call.respond(HttpStatusCode.Conflict, "Ya existe una categoría con ese nombre")
-
-            } catch (e: Exception) {
-                // Otros errores no esperados
-                println(e)
-                call.respond(HttpStatusCode.InternalServerError, "Error interno del servidor: ${e.message}")
             }
         }
+
 
         get("/formspago") {
             val formasPago = formapagorepository.getAll()
@@ -196,6 +250,29 @@ fun Application.configureRouting() {
                 )
             }
         }
+        post("/category/delete/{category_id}") {
+            val id = call.parameters["category_id"] ?: ""
+            try {
+                if (id.isNotEmpty()) {
+                    val id_int= id.toInt()
+                    val categories = categoryRepository.getAll()
+                    var exist = categories.find { u -> u.id_category == id_int }
+                    if (exist != null) {
+                        categoryRepository.deleteById(id_int)
+                        call.respond(HttpStatusCode.OK)
+                    } else {
+                        call.respond(HttpStatusCode.NotFound, "User not found")
+                    }
+                } else {
+                    call.respond(HttpStatusCode.Unauthorized, "There is no id on the message")
+                }
+            } catch (e: NumberFormatException) {
+                call.respond(HttpStatusCode.BadRequest)
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError)
+            }
+        }
+
         post("/user/update/{id}") {
             val id = call.parameters["id"] ?: ""
 
@@ -383,6 +460,7 @@ fun generateInvoicePDFBytes(): ByteArray {
 }
 fun generateQRCodeImage(text: String, width: Int, height: Int): BufferedImage {
     val qrCodeWriter = QRCodeWriter()
-    val bitMatrix = qrCodeWriter.encode(text, BarcodeFormat.QR_CODE, width, height)
+    val qr="https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQR?nif=20521995S&numserie=12345678/G33&fecha=01-01-2024&importe=241.4"
+    val bitMatrix = qrCodeWriter.encode(qr, BarcodeFormat.QR_CODE, width, height)
     return MatrixToImageWriter.toBufferedImage(bitMatrix)
 }

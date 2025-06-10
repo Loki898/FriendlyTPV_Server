@@ -5,21 +5,23 @@ import com.example.dto.Invoice
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 
-class InvoiceRepository(){
-    fun getAll(): List<Invoice>{
+class InvoiceRepository {
+    fun getAll(): List<Invoice> {
         return transaction {
-                InvoicesMySQL.selectAll().map {
+            InvoicesMySQL.selectAll().map {
                 Invoice(
-                    id_invoice = it[InvoicesMySQL.id],
-                    numserie = it[InvoicesMySQL.numSerie],
+                    idInvoice = it[InvoicesMySQL.id],
+                    numSerie = it[InvoicesMySQL.numSerie],
                     fechaEmision = it[InvoicesMySQL.fechaEmision],
-                    total_iva = it[InvoicesMySQL.totalIva],
+                    baseImponible = it[InvoicesMySQL.baseImponible],
+                    totalIva = it[InvoicesMySQL.totalIva],
+                    total = it[InvoicesMySQL.total],
                     estado = it[InvoicesMySQL.estado],
-                    firma_hash = it[InvoicesMySQL.firmaHash],
-                    hash_anterior = it[InvoicesMySQL.hashAnterior],
-                    algoritmo_cifrado = it[InvoicesMySQL.algoritmoCifrado],
+                    firmaHash = it[InvoicesMySQL.firmaHash],
+                    hashAnterior = it[InvoicesMySQL.hashAnterior],
+                    algoritmoCifrado = it[InvoicesMySQL.algoritmoCifrado],
                     operador = it[InvoicesMySQL.operador],
-                    forma_pago = it[InvoicesMySQL.formaPagoId]
+                    formaPago = it[InvoicesMySQL.formaPagoId]
                 )
             }
         }

@@ -20,19 +20,22 @@ object CategoryMySQL : Table("category") {
 }
 
 object InvoicesMySQL : Table("invoices") {
-    val id = integer("id_invoice").autoIncrement()
+    val id = integer("id_invoice")
     val numSerie = integer("num_serie")
     val fechaEmision = datetime("fecha_emision").nullable()
+    val baseImponible = double("base_imponible").nullable()
     val totalIva = double("total_iva").nullable()
+    val total = double("total").nullable()
     val estado = integer("estado").nullable()
     val firmaHash = text("firma_hash").nullable()
     val hashAnterior = text("hash_anterior").nullable()
     val algoritmoCifrado = text("algoritmo_cifrado").nullable()
-    val operador = integer("operador").nullable()
+    val operador = varchar("operador", 30).nullable()
     val formaPagoId = integer("id_formapago").references(FormaPagoMySQL.id)
 
     override val primaryKey = PrimaryKey(id)
 }
+
 
 object ProductsMySQL : Table("products") {
     val id = integer("id_producto").autoIncrement()
@@ -41,13 +44,13 @@ object ProductsMySQL : Table("products") {
     val precio = double("precio").nullable()
     val stock = integer("stock").nullable()
     val tipoIva = integer("tipo_iva").nullable()
-    val categoryId = integer("category_id").references(CategoryMySQL.id, onDelete = ReferenceOption.CASCADE)
+    val categoryId = integer("category_id").references(CategoryMySQL.id, onDelete = ReferenceOption.CASCADE, onUpdate = ReferenceOption.CASCADE)
 
     override val primaryKey = PrimaryKey(id)
 }
 
 
-object LineasVentaMySQL : Table("lineas_venta") {
+object LineasVentaMySQL : Table("sales_lines") {
     val numeroLinea = integer("numero_linea")
     val ventaId = integer("venta_id").references(InvoicesMySQL.id)
     val producto = integer("producto").references(ProductsMySQL.id)

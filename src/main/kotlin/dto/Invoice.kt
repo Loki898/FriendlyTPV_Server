@@ -12,19 +12,20 @@ import java.time.format.DateTimeFormatter
 
 @Serializable
 data class Invoice(
-    var id_invoice:Int? = null,
-    var numserie:Int? = null,
+    val idInvoice: Int? = null,
+    val numSerie: Int? = null,
     @Serializable(with = LocalDateTimeSerializer::class)
-    val fechaEmision: LocalDateTime?,
-    var total_iva: Double? = null,
-    var estado:Int? = 0,
-    var firma_hash:String?=null,
-    var hash_anterior:String?=null,
-    var algoritmo_cifrado:String?=null,
-    var operador:Int?=null,
-    var forma_pago:Int?=null
-    ){}
-
+    val fechaEmision: LocalDateTime? = null,
+    val baseImponible: Double? = null,
+    val totalIva: Double? = null,
+    val total: Double? = null,
+    val estado: Int? = 0,
+    val firmaHash: String? = null,
+    val hashAnterior: String? = null,
+    val algoritmoCifrado: String? = null,
+    val operador: String? = null,
+    val formaPago: Int? = null
+)
 
 object LocalDateTimeSerializer : KSerializer<LocalDateTime> {
     private val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
