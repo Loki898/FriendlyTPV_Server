@@ -20,8 +20,8 @@ data class Invoice(
     val totalIva: Double? = null,
     val total: Double? = null,
     val estado: Int? = 0,
-    val firmaHash: String? = null,
-    val hashAnterior: String? = null,
+    var firmaHash: String? = null,
+    var hashAnterior: String? = null,
     val algoritmoCifrado: String? = null,
     val operador: String? = null,
     val formaPago: Int? = null

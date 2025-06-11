@@ -35,6 +35,8 @@ import org.bson.types.ObjectId
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.util.*
 
 fun Application.configureRouting() {
@@ -50,6 +52,7 @@ fun Application.configureRouting() {
     val lineasVentaRepository = LineasVentaRepository()
     val productRepository = ProductRepository()
     DatabaseFactory.init()
+
 
     install(Authentication) {
         jwt("jwt-auth") {
@@ -84,6 +87,7 @@ fun Application.configureRouting() {
                 call.respond(HttpStatusCode.OK)
             }
         }
+
         get("/products/category/{id_categoria}"){
             val id = call.parameters["id_categoria"] ?: ""
             if (id.isNotEmpty()) {
@@ -105,7 +109,6 @@ fun Application.configureRouting() {
                 val producto = call.receive<Producto>()
                 val productos = productRepository.getAll()
 
-                // Validación básica
                 if (producto.nombre?.isBlank() == true) {
                     call.respond(HttpStatusCode.BadRequest, "El nombre de la categoría no puede estar vacío")
                     return@post
@@ -117,27 +120,24 @@ fun Application.configureRouting() {
                 }
 
 
-                // Insertar y responder
                 val inserted = productRepository.insertProduct(producto)
                 call.respond(HttpStatusCode.Created, inserted)
+
 
             } catch (e: BadRequestException) {
                 // Error al deserializar JSON
                 call.respond(HttpStatusCode.BadRequest, "Formato JSON inválido: ${e.message}")
 
             } catch (e: DuplicateKeyException) {
-                // Ejemplo si la categoría ya existe
                 call.respond(HttpStatusCode.Conflict, "Ya existe un producto con ese nombre")
 
             } catch (e: Exception) {
-                // Otros errores no esperados
                 println(e)
                 call.respond(HttpStatusCode.InternalServerError, "Error interno del servidor: ${e.message}")
             }
         }
         get("/") {
             val users = userRepository.getAll()
-            //val usersResponses = mutableListOf<UserResponse>()
             val usersResponses = mutableListOf<User>()
             users.forEach {
                 val userResponse = User(
@@ -180,7 +180,6 @@ fun Application.configureRouting() {
                     val category = call.receive<Category>()
                     val categories = categoryRepository.getAll()
 
-                    // Validación básica
                     if (category.nombre.isBlank()) {
                         call.respond(HttpStatusCode.BadRequest, "El nombre de la categoría no puede estar vacío")
                         return@post
@@ -192,20 +191,59 @@ fun Application.configureRouting() {
                     }
 
 
-                    // Insertar y responder
                     val inserted = categoryRepository.insertCategory(category)
                     call.respond(HttpStatusCode.Created, inserted)
 
                 } catch (e: BadRequestException) {
-                    // Error al deserializar JSON
                     call.respond(HttpStatusCode.BadRequest, "Formato JSON inválido: ${e.message}")
 
                 } catch (e: DuplicateKeyException) {
-                    // Ejemplo si la categoría ya existe
                     call.respond(HttpStatusCode.Conflict, "Ya existe una categoría con ese nombre")
 
                 } catch (e: Exception) {
-                    // Otros errores no esperados
+                    println(e)
+                    call.respond(HttpStatusCode.InternalServerError, "Error interno del servidor: ${e.message}")
+                }
+            }
+        }
+
+        authenticate("jwt-auth") {
+            post("/invoices") {
+                try {
+                    val invoice = call.receive<Invoice>()
+                    val invoices = invoiceRepository.getAll()
+
+                    if (invoice.numSerie.toString().isBlank()) {
+                        call.respond(HttpStatusCode.BadRequest, "El número de serie de la factura no puede estar vacío")
+                        return@post
+                    }
+                    var exist = false
+                    for (inv in invoices) {
+                        if(inv.numSerie == invoice.numSerie){
+                            exist = true
+                        }
+                    }
+                    if (exist) {
+                        call.respond(HttpStatusCode.Conflict, "Esa categoría ya existe")
+                        return@post
+                    }
+
+
+                    val inserted = invoiceRepository.insertInvoice(invoice)
+                    if (inserted != null) {
+                        call.respond(HttpStatusCode.Created, inserted.toInt())
+                    } else {
+                        call.respond(HttpStatusCode.Conflict)
+                    }
+
+
+                } catch (e: BadRequestException) {
+                    call.respond(HttpStatusCode.BadRequest, "Formato JSON inválido: ${e.message}")
+
+                } catch (e: DuplicateKeyException) {
+                    call.respond(HttpStatusCode.Conflict, "Ya existe una categoría con ese nombre")
+
+                } catch (e: Exception) {
                     println(e)
                     call.respond(HttpStatusCode.InternalServerError, "Error interno del servidor: ${e.message}")
                 }
